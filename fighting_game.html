@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two Player Fighting Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background-color: #87CEEB;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+        }
+        .player-controls {
+            text-align: center;
+        }
+        .health-bars {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+        }
+        .health-bar {
+            width: 300px;
+            height: 30px;
+            border: 2px solid #fff;
+            background-color: #333;
+        }
+        .health-fill {
+            height: 100%;
+            background-color: #ff0000;
+            transition: width 0.3s;
+        }
+        .winner {
+            font-size: 48px;
+            color: #ffff00;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Two Player Fighting Game</h1>
+    
+    <div class="health-bars">
+        <div>
+            <div>Player 1</div>
+            <div class="health-bar">
+                <div class="health-fill" id="player1Health"></div>
+            </div>
+        </div>
+        <div>
+            <div>Player 2</div>
+            <div class="health-bar">
+                <div class="health-fill" id="player2Health"></div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    
+    <div class="controls">
+        <div class="player-controls">
+            <h3>Player 1 Controls</h3>
+            <p>Move: WASD</p>
+            <p>Attack: F</p>
+        </div>
+        <div class="player-controls">
+            <h3>Player 2 Controls</h3>
+            <p>Move: OKL;</p>
+            <p>Attack: J</p>
+        </div>
+    </div>
+
+    <div class="winner" id="winner"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const player1HealthBar = document.getElementById('player1Health');
+        const player2HealthBar = document.getElementById('player2Health');
+        const winnerDisplay = document.getElementById('winner');
+
+        // Game state
+        let gameOver = false;
+        const keys = {};
+
+        // Player class
+        class Player {
+            constructor(x, y, color, controls) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.controls = controls;
+                this.health = 100;
+                this.maxHealth = 100;
+                this.speed = 3;
+                this.isAttacking = false;
+                this.attackCooldown = 0;
+                this.attackRange = 60;
+                this.attackDamage = 10;
+                this.facingRight = true;
+                this.punchAnimation = 0;
+            }
+
+            update() {
+                if (gameOver) return;
+
+                // Handle movement
+                if (keys[this.controls.left] && this.x > 20) {
+                    this.x -= this.speed;
+                    this.facingRight = false;
+                }
+                if (keys[this.controls.right] && this.x < canvas.width - 20) {
+                    this.x += this.speed;
+                    this.facingRight = true;
+                }
+                if (keys[this.controls.up] && this.y > 50) {
+                    this.y -= this.speed;
+                }
+                if (keys[this.controls.down] && this.y < canvas.height - 50) {
+                    this.y += this.speed;
+                }
+
+                // Handle attack
+                if (keys[this.controls.attack] && this.attackCooldown <= 0) {
+                    this.isAttacking = true;
+                    this.attackCooldown = 30; // 30 frames cooldown
+                    this.punchAnimation = 15; // 15 frames of punch animation
+                }
+
+                // Update cooldowns and animations
+                if (this.attackCooldown > 0) this.attackCooldown--;
+                if (this.punchAnimation > 0) this.punchAnimation--;
+                if (this.punchAnimation <= 0) this.isAttacking = false;
+            }
+
+            draw() {
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+
+                // Head
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 30, 15, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Body
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 15);
+                ctx.lineTo(this.x, this.y + 30);
+                ctx.stroke();
+
+                // Legs
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 30);
+                ctx.lineTo(this.x - 15, this.y + 60);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 30);
+                ctx.lineTo(this.x + 15, this.y + 60);
+                ctx.stroke();
+
+                // Arms
+                const armOffset = this.isAttacking ? 20 : 10;
+                const armDirection = this.facingRight ? 1 : -1;
+
+                if (this.isAttacking) {
+                    // Punching arm (extended)
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + (armOffset * 2 * armDirection), this.y - 5);
+                    ctx.stroke();
+
+                    // Other arm (normal)
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - (armOffset * armDirection), this.y + 10);
+                    ctx.stroke();
+                } else {
+                    // Normal arms
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - armOffset, this.y + 15);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + armOffset, this.y + 15);
+                    ctx.stroke();
+                }
+            }
+
+            attack(target) {
+                if (!this.isAttacking) return false;
+
+                const distance = Math.sqrt(
+                    Math.pow(this.x - target.x, 2) + Math.pow(this.y - target.y, 2)
+                );
+
+                if (distance <= this.attackRange) {
+                    target.takeDamage(this.attackDamage);
+                    return true;
+                }
+                return false;
+            }
+
+            takeDamage(damage) {
+                this.health -= damage;
+                if (this.health < 0) this.health = 0;
+            }
+
+            isDead() {
+                return this.health <= 0;
+            }
+        }
+
+        // Create players
+        const player1 = new Player(150, 200, '#ff0000', {
+            left: 'a',
+            right: 'd',
+            up: 'w',
+            down: 's',
+            attack: 'f'
+        });
+
+        const player2 = new Player(650, 200, '#0000ff', {
+            left: 'k',
+            right: ';',
+            up: 'o',
+            down: 'l',
+            attack: 'j'
+        });
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Game loop
+        function gameLoop() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw ground
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 10);
+            ctx.lineTo(canvas.width, canvas.height - 10);
+            ctx.stroke();
+
+            if (!gameOver) {
+                // Update players
+                player1.update();
+                player2.update();
+
+                // Check attacks
+                player1.attack(player2);
+                player2.attack(player1);
+
+                // Check for game over
+                if (player1.isDead()) {
+                    gameOver = true;
+                    winnerDisplay.textContent = 'Player 2 Wins!';
+                } else if (player2.isDead()) {
+                    gameOver = true;
+                    winnerDisplay.textContent = 'Player 1 Wins!';
+                }
+            }
+
+            // Draw players
+            player1.draw();
+            player2.draw();
+
+            // Update health bars
+            const player1HealthPercent = (player1.health / player1.maxHealth) * 100;
+            const player2HealthPercent = (player2.health / player2.maxHealth) * 100;
+            
+            player1HealthBar.style.width = player1HealthPercent + '%';
+            player2HealthBar.style.width = player2HealthPercent + '%';
+
+            // Continue game loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        gameLoop();
+
+        // Reset game function
+        function resetGame() {
+            player1.health = player1.maxHealth;
+            player2.health = player2.maxHealth;
+            player1.x = 150;
+            player1.y = 200;
+            player2.x = 650;
+            player2.y = 200;
+            gameOver = false;
+            winnerDisplay.textContent = '';
+        }
+
+        // Add reset functionality with R key
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'r' && gameOver) {
+                resetGame();
+            }
+        });
+    </script>
+</body>
+</html>
